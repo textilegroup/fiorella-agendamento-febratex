@@ -588,6 +588,7 @@
 
       <div id="adminPanel" hidden>
         <p class="section-note">Toque em um horário livre para bloquear ou desbloquear. Reservas podem ser canceladas abaixo.</p>
+        <div class="message" id="adminPanelMessage"></div>
         <div class="admin-tools">
           <button type="button" class="small-btn" id="exportCsv">Exportar reservas em CSV</button>
           <button type="button" class="small-btn danger" id="clearAll">Limpar todos os dados</button>
@@ -841,7 +842,7 @@
       window.scrollTo({ top: 0, behavior: "smooth" });
     });
 
-    // O painel visual é mantido, mas dados pessoais permanecem protegidos pelo RLS.
+    // Administração simples dentro do HTML, utilizando funções RPC protegidas pela senha definida.
     const dialog = document.getElementById("adminDialog");
     document.getElementById("openAdmin").addEventListener("click", () => dialog.showModal());
     document.getElementById("closeAdmin").addEventListener("click", () => dialog.close());
@@ -852,12 +853,33 @@
 
     document.getElementById("adminLoginBtn").addEventListener("click", async () => {
       const password = document.getElementById("adminPassword").value;
-      if (password !== CONFIG.adminPassword) return showMessage(document.getElementById("adminMessage"), "Senha incorreta.", "error");
+      if (password !== CONFIG.adminPassword) {
+        return showMessage(document.getElementById("adminMessage"), "Senha incorreta.", "error");
+      }
+      document.getElementById("adminLoginBtn").disabled = true;
+      document.getElementById("adminLoginBtn").textContent = "Carregando...";
+      const ok = await loadAdminData();
+      document.getElementById("adminLoginBtn").disabled = false;
+      document.getElementById("adminLoginBtn").textContent = "Entrar";
+      if (!ok) return;
       document.getElementById("adminLogin").hidden = true;
       document.getElementById("adminPanel").hidden = false;
-      await loadSlots(false);
       renderAdmin();
     });
+
+    async function loadAdminData() {
+      const { data, error } = await db.rpc("admin_listar_agendamentos_visita", {
+        p_senha: CONFIG.adminPassword
+      });
+      if (error) {
+        console.error(error);
+        showMessage(document.getElementById("adminMessage"), error.message || "Não foi possível abrir a administração.", "error");
+        return false;
+      }
+      state.bookings = Array.isArray(data) ? data : (data?.agendamentos || []);
+      await loadSlots(false);
+      return true;
+    }
 
     function renderAdmin() {
       const container = document.getElementById("adminDays");
@@ -865,16 +887,122 @@
         <div style="margin-top:16px">
           <strong style="display:block;margin-bottom:8px;color:var(--fiorella-navy);font-size:.87rem">${dateKeyLabel(date, true)}</strong>
           <div class="admin-slot-grid">
-            ${TIMES.map(time => `<button type="button" class="admin-slot ${slotStatus(date, time)}" disabled>${time}</button>`).join("")}
+            ${TIMES.map(time => {
+              const status = slotStatus(date, time);
+              const disabled = status === "reserved";
+              const title = status === "blocked" ? "Clique para desbloquear" : status === "free" ? "Clique para bloquear" : "Horário reservado";
+              return `<button type="button" class="admin-slot ${status}" data-date="${date}" data-time="${time}" ${disabled ? "disabled" : ""} title="${title}">${time}</button>`;
+            }).join("")}
           </div>
         </div>`).join("");
-      document.getElementById("bookingsList").innerHTML = '<div class="empty-state">Os dados pessoais estão protegidos no Supabase. Para administrar, cancelar e exportar reservas, conecte o painel ao Supabase Auth.</div>';
-      document.getElementById("exportCsv").disabled = true;
-      document.getElementById("clearAll").disabled = true;
+
+      container.querySelectorAll(".admin-slot:not(:disabled)").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          const status = slotStatus(btn.dataset.date, btn.dataset.time);
+          const action = status === "blocked" ? "desbloquear" : "bloquear";
+          btn.disabled = true;
+          const { error } = await db.rpc("admin_alterar_horario_visita", {
+            p_senha: CONFIG.adminPassword,
+            p_data_visita: btn.dataset.date,
+            p_horario: btn.dataset.time,
+            p_acao: action
+          });
+          if (error) {
+            console.error(error);
+            showMessage(document.getElementById("adminPanelMessage"), error.message || "Não foi possível alterar o horário.", "error");
+          } else {
+            await loadSlots(false);
+            renderAdmin();
+            showMessage(document.getElementById("adminPanelMessage"), action === "bloquear" ? "Horário bloqueado." : "Horário desbloqueado.", "success");
+          }
+        });
+      });
+
+      const activeBookings = (state.bookings || []).filter(item => item.status !== "cancelado");
+      document.getElementById("bookingsList").innerHTML = activeBookings.length
+        ? activeBookings.map(item => `
+          <div class="booking-card">
+            <strong>${escapeHtml(item.nome)}</strong> — ${escapeHtml(item.empresa)}<br>
+            ${dateKeyLabel(item.data_visita, true)}, às <strong>${normalizeTime(item.horario)}</strong><br>
+            Participantes: <strong>${item.numero_participantes}</strong><br>
+            Telefone: ${escapeHtml(item.telefone)}<br>
+            E-mail: ${escapeHtml(item.email)}<br>
+            Código: ${escapeHtml(item.codigo_confirmacao || "—")}
+            <div class="booking-actions">
+              <button type="button" class="small-btn danger cancel-booking" data-id="${item.id}">Cancelar e liberar horário</button>
+            </div>
+          </div>`).join("")
+        : '<div class="empty-state">Nenhuma reserva confirmada.</div>';
+
+      document.querySelectorAll(".cancel-booking").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          if (!confirm("Cancelar esta reserva e liberar o horário?")) return;
+          btn.disabled = true;
+          const { error } = await db.rpc("admin_cancelar_agendamento_visita", {
+            p_senha: CONFIG.adminPassword,
+            p_agendamento_id: btn.dataset.id
+          });
+          if (error) {
+            console.error(error);
+            showMessage(document.getElementById("adminPanelMessage"), error.message || "Não foi possível cancelar.", "error");
+            btn.disabled = false;
+            return;
+          }
+          await loadAdminData();
+          renderAdmin();
+          showMessage(document.getElementById("adminPanelMessage"), "Reserva cancelada e horário liberado.", "success");
+        });
+      });
     }
 
-    document.getElementById("exportCsv").addEventListener("click", () => {});
-    document.getElementById("clearAll").addEventListener("click", () => {});
+    document.getElementById("exportCsv").addEventListener("click", () => {
+      const rows = (state.bookings || []).filter(item => item.status !== "cancelado");
+      if (!rows.length) return showMessage(document.getElementById("adminPanelMessage"), "Não há reservas para exportar.", "error");
+      const headers = ["Data", "Horário", "Nome", "Empresa", "Participantes", "Telefone", "E-mail", "Código", "Status", "Criado em"];
+      const values = rows.map(item => [
+        item.data_visita,
+        normalizeTime(item.horario),
+        item.nome,
+        item.empresa,
+        item.numero_participantes,
+        item.telefone,
+        item.email,
+        item.codigo_confirmacao || "",
+        item.status,
+        item.created_at || ""
+      ]);
+      const csvEscape = value => `"${String(value ?? "").replace(/"/g, '""')}"`;
+      const csv = "\uFEFF" + [headers, ...values].map(row => row.map(csvEscape).join(";")).join("\r\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "agendamentos-fiorella-febratex.csv";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    });
+
+    document.getElementById("clearAll").addEventListener("click", async () => {
+      const first = confirm("Esta ação cancelará todas as reservas e liberará todos os horários. Deseja continuar?");
+      if (!first) return;
+      const confirmation = prompt('Digite LIMPAR para confirmar:');
+      if (confirmation !== "LIMPAR") return;
+      const button = document.getElementById("clearAll");
+      button.disabled = true;
+      const { error } = await db.rpc("admin_limpar_agenda_visita", {
+        p_senha: CONFIG.adminPassword
+      });
+      button.disabled = false;
+      if (error) {
+        console.error(error);
+        return showMessage(document.getElementById("adminPanelMessage"), error.message || "Não foi possível limpar a agenda.", "error");
+      }
+      await loadAdminData();
+      renderAdmin();
+      showMessage(document.getElementById("adminPanelMessage"), "Agenda limpa e todos os horários liberados.", "success");
+    });
 
     async function initialize() {
       renderDates();
