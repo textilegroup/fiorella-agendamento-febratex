@@ -283,51 +283,38 @@
       box-shadow: 0 0 0 3px rgba(36,76,124,.11);
     }
 
-    .participants-head {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 8px;
-    }
+    .progressive-section[hidden] { display: none; }
 
-    .count-badge {
-      background: rgba(36,76,124,.09);
-      color: var(--fiorella-blue);
-      border: 1px solid rgba(36,76,124,.13);
-      padding: 5px 9px;
-      border-radius: 999px;
-      font-weight: 900;
-      font-size: .74rem;
-      white-space: nowrap;
-    }
-
-    .participant-row {
+    .counter-control {
       display: grid;
-      grid-template-columns: 1fr 43px;
+      grid-template-columns: 52px 1fr 52px;
       gap: 8px;
-      margin-bottom: 8px;
+      align-items: center;
     }
 
-    .remove-participant {
-      border: 1px solid #f0cbc7;
-      color: var(--danger);
-      background: var(--danger-bg);
+    .counter-control button {
+      min-height: 49px;
+      border: 1px solid #d5d9df;
       border-radius: 12px;
+      background: #f7f8fb;
+      color: var(--fiorella-navy);
+      font-size: 1.35rem;
+      font-weight: 900;
       cursor: pointer;
-      font-size: 1.2rem;
-      font-weight: 700;
     }
 
-    .add-participant {
-      width: 100%;
-      min-height: 45px;
-      border: 1px dashed rgba(36,76,124,.45);
-      color: var(--fiorella-blue);
+    .counter-control button:disabled { opacity: .35; cursor: not-allowed; }
+
+    .counter-value {
+      min-height: 49px;
+      display: grid;
+      place-items: center;
+      border: 1px solid #d5d9df;
       border-radius: 12px;
-      background: rgba(36,76,124,.04);
-      cursor: pointer;
-      font-weight: 800;
+      background: #fff;
+      color: var(--fiorella-navy);
+      font-weight: 900;
+      font-size: 1.05rem;
     }
 
     .summary {
@@ -509,7 +496,7 @@
       <div id="dateGrid" class="date-grid"></div>
     </section>
 
-    <section class="section">
+    <section class="section progressive-section" id="step2" hidden>
       <div class="section-head">
         <div>
           <h2>2. Escolha o horário</h2>
@@ -526,7 +513,7 @@
       </div>
     </section>
 
-    <section class="section">
+    <section class="section progressive-section" id="step3" hidden>
       <div class="section-head">
         <div>
           <h2>3. Informe os dados da visita</h2>
@@ -536,17 +523,22 @@
 
       <form id="bookingForm" novalidate>
         <div class="field">
-          <label for="company">Nome da empresa *</label>
+          <label for="visitorName">Seu nome *</label>
+          <input id="visitorName" name="visitorName" type="text" maxlength="100" autocomplete="name" placeholder="Digite seu nome" required />
+        </div>
+
+        <div class="field">
+          <label for="company">Empresa *</label>
           <input id="company" name="company" type="text" maxlength="100" autocomplete="organization" placeholder="Digite o nome da empresa" required />
         </div>
 
         <div class="field">
-          <div class="participants-head">
-            <label style="margin:0">Nome dos participantes *</label>
-            <span class="count-badge" id="participantCount">1 participante</span>
+          <label>Número de participantes *</label>
+          <div class="counter-control" aria-label="Número de participantes">
+            <button type="button" id="decreaseParticipants" aria-label="Diminuir número de participantes">−</button>
+            <div class="counter-value" id="participantCount" aria-live="polite">1 participante</div>
+            <button type="button" id="increaseParticipants" aria-label="Aumentar número de participantes">+</button>
           </div>
-          <div id="participantsList"></div>
-          <button type="button" class="add-participant" id="addParticipant">+ Adicionar participante</button>
         </div>
 
         <div class="field">
@@ -607,36 +599,26 @@
     </div>
   </dialog>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
-    /* CONFIGURAÇÃO RÁPIDA */
     const CONFIG = {
       dates: ["2026-08-18", "2026-08-19", "2026-08-20", "2026-08-21"],
       startTime: "14:00",
       endTime: "19:30",
       intervalMinutes: 30,
-      adminPassword: "fiorella2026"
+      adminPassword: "fiorella2026",
+      supabaseUrl: "https://eepmlsdbtcvsjxdcvimi.supabase.co",
+      supabaseKey: "sb_publishable_048Dv-jRALn34Ythhj9ngA_fZ1gsNI_"
     };
 
-    const STORAGE_KEY = "fiorella_visitas_ago_2026_v1";
+    const db = window.supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseKey);
     const state = {
       selectedDate: null,
       selectedTime: null,
-      participants: [""] ,
-      data: loadData()
+      participantCount: 1,
+      slots: new Map(),
+      bookings: []
     };
-
-    function loadData() {
-      try {
-        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-        return saved && saved.bookings && saved.blocked ? saved : { bookings: {}, blocked: {} };
-      } catch {
-        return { bookings: {}, blocked: {} };
-      }
-    }
-
-    function saveData() {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state.data));
-    }
 
     function dateKeyLabel(dateKey, full = false) {
       const date = new Date(dateKey + "T12:00:00");
@@ -662,6 +644,25 @@
     }
 
     const TIMES = generateTimes();
+    const normalizeTime = value => String(value || "").slice(0, 5);
+
+    async function loadSlots(showError = true) {
+      const { data, error } = await db.rpc("listar_horarios_visita");
+      if (error) {
+        console.error(error);
+        if (showError) {
+          const message = document.getElementById("formMessage");
+          showMessage(message, "Não foi possível carregar os horários. Atualize a página e tente novamente.", "error");
+        }
+        return false;
+      }
+      state.slots.clear();
+      (data || []).forEach(slot => {
+        state.slots.set(`${slot.data_visita}|${normalizeTime(slot.horario)}`, slot.status);
+      });
+      if (state.selectedDate) renderTimes();
+      return true;
+    }
 
     function renderDates() {
       const grid = document.getElementById("dateGrid");
@@ -674,19 +675,21 @@
         </button>`;
       }).join("");
 
-      grid.querySelectorAll(".date-btn").forEach(btn => btn.addEventListener("click", () => {
+      grid.querySelectorAll(".date-btn").forEach(btn => btn.addEventListener("click", async () => {
         state.selectedDate = btn.dataset.date;
         state.selectedTime = null;
         renderDates();
         renderTimes();
+        updateProgressiveSections();
         updateSummary();
+        await loadSlots(false);
       }));
     }
 
     function slotStatus(date, time) {
-      const key = `${date}|${time}`;
-      if (state.data.bookings[key]) return "reserved";
-      if (state.data.blocked[key]) return "blocked";
+      const status = state.slots.get(`${date}|${time}`) || "disponivel";
+      if (status === "reservado") return "reserved";
+      if (status === "bloqueado") return "blocked";
       return "free";
     }
 
@@ -700,43 +703,31 @@
         const status = slotStatus(state.selectedDate, time);
         const selected = state.selectedTime === time;
         const disabled = status !== "free";
-        return `<button type="button" class="time-btn ${status} ${selected ? "selected" : ""}" data-time="${time}" ${disabled ? "disabled" : ""}>
-          ${time}
-        </button>`;
+        return `<button type="button" class="time-btn ${status} ${selected ? "selected" : ""}" data-time="${time}" ${disabled ? "disabled" : ""}>${time}</button>`;
       }).join("");
 
       grid.querySelectorAll(".time-btn:not(:disabled)").forEach(btn => btn.addEventListener("click", () => {
         state.selectedTime = btn.dataset.time;
         renderTimes();
+        updateProgressiveSections();
         updateSummary();
       }));
     }
 
-    function renderParticipants() {
-      const list = document.getElementById("participantsList");
-      list.innerHTML = state.participants.map((name, index) => `
-        <div class="participant-row">
-          <input type="text" class="participant-input" data-index="${index}" maxlength="80" placeholder="Participante ${index + 1}" value="${escapeHtml(name)}" required />
-          <button type="button" class="remove-participant" data-index="${index}" aria-label="Remover participante" ${state.participants.length === 1 ? "disabled style='opacity:.35;cursor:not-allowed'" : ""}>×</button>
-        </div>
-      `).join("");
+    function updateParticipantCounter() {
+      const count = state.participantCount;
+      document.getElementById("participantCount").textContent = `${count} ${count === 1 ? "participante" : "participantes"}`;
+      document.getElementById("decreaseParticipants").disabled = count <= 1;
+      document.getElementById("increaseParticipants").disabled = count >= 5;
+    }
 
-      document.getElementById("participantCount").textContent = `${state.participants.length} ${state.participants.length === 1 ? "participante" : "participantes"}`;
-
-      list.querySelectorAll(".participant-input").forEach(input => input.addEventListener("input", e => {
-        state.participants[Number(e.target.dataset.index)] = e.target.value;
-        updateSummary();
-      }));
-
-      list.querySelectorAll(".remove-participant:not(:disabled)").forEach(btn => btn.addEventListener("click", () => {
-        state.participants.splice(Number(btn.dataset.index), 1);
-        renderParticipants();
-        updateSummary();
-      }));
+    function updateProgressiveSections() {
+      document.getElementById("step2").hidden = !state.selectedDate;
+      document.getElementById("step3").hidden = !(state.selectedDate && state.selectedTime);
     }
 
     function escapeHtml(value = "") {
-      return value.replace(/[&<>'"]/g, char => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", "'":"&#39;", '"':"&quot;" }[char]));
+      return String(value).replace(/[&<>'"]/g, char => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", "'":"&#39;", '"':"&quot;" }[char]));
     }
 
     function updateSummary() {
@@ -745,7 +736,7 @@
         box.innerHTML = "<strong>Resumo:</strong> selecione uma data e um horário.";
         return;
       }
-      box.innerHTML = `<strong>Resumo:</strong> ${dateKeyLabel(state.selectedDate, true)}, às <strong>${state.selectedTime}</strong>, para <strong>${state.participants.length}</strong> ${state.participants.length === 1 ? "participante" : "participantes"}.`;
+      box.innerHTML = `<strong>Resumo:</strong> ${dateKeyLabel(state.selectedDate, true)}, às <strong>${state.selectedTime}</strong>, para <strong>${state.participantCount}</strong> ${state.participantCount === 1 ? "participante" : "participantes"}.`;
     }
 
     function formatPhone(value) {
@@ -761,84 +752,96 @@
       element.textContent = text;
     }
 
-    document.getElementById("addParticipant").addEventListener("click", () => {
-      state.participants.push("");
-      renderParticipants();
+    document.getElementById("decreaseParticipants").addEventListener("click", () => {
+      if (state.participantCount > 1) state.participantCount--;
+      updateParticipantCounter();
       updateSummary();
-      const inputs = document.querySelectorAll(".participant-input");
-      inputs[inputs.length - 1].focus();
+    });
+
+    document.getElementById("increaseParticipants").addEventListener("click", () => {
+      if (state.participantCount < 5) state.participantCount++;
+      updateParticipantCounter();
+      updateSummary();
     });
 
     document.getElementById("phone").addEventListener("input", e => {
       e.target.value = formatPhone(e.target.value);
     });
 
-    document.getElementById("bookingForm").addEventListener("submit", e => {
+    document.getElementById("bookingForm").addEventListener("submit", async e => {
       e.preventDefault();
       const message = document.getElementById("formMessage");
+      const submitBtn = document.getElementById("submitBtn");
+      const visitorName = document.getElementById("visitorName").value.trim();
       const company = document.getElementById("company").value.trim();
       const phone = document.getElementById("phone").value.trim();
       const email = document.getElementById("email").value.trim();
-      const participants = state.participants.map(p => p.trim()).filter(Boolean);
+      const participantCount = state.participantCount;
 
-      if (!state.selectedDate || !state.selectedTime) {
-        return showMessage(message, "Selecione uma data e um horário disponível.", "error");
-      }
+      if (!state.selectedDate || !state.selectedTime) return showMessage(message, "Selecione uma data e um horário disponível.", "error");
+      if (!visitorName) return showMessage(message, "Informe seu nome.", "error");
       if (!company) return showMessage(message, "Informe o nome da empresa.", "error");
-      if (participants.length !== state.participants.length || participants.length === 0) {
-        return showMessage(message, "Preencha o nome de todos os participantes.", "error");
-      }
-      if (phone.replace(/\D/g, "").length < 10) {
-        return showMessage(message, "Informe um telefone válido com DDD.", "error");
-      }
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        return showMessage(message, "Informe um e-mail válido para receber a confirmação.", "error");
-      }
+      if (participantCount < 1 || participantCount > 5) return showMessage(message, "Informe entre 1 e 5 participantes.", "error");
+      if (phone.replace(/\D/g, "").length < 10) return showMessage(message, "Informe um telefone válido com DDD.", "error");
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return showMessage(message, "Informe um e-mail válido para receber a confirmação.", "error");
 
-      const key = `${state.selectedDate}|${state.selectedTime}`;
-      if (slotStatus(state.selectedDate, state.selectedTime) !== "free") {
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Confirmando...";
+      message.className = "message";
+
+      const { data, error } = await db.rpc("reservar_visita", {
+        p_data_visita: state.selectedDate,
+        p_horario: state.selectedTime,
+        p_nome: visitorName,
+        p_empresa: company,
+        p_numero_participantes: participantCount,
+        p_telefone: phone,
+        p_email: email,
+        p_user_agent: navigator.userAgent
+      });
+
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Confirmar agendamento";
+
+      if (error) {
+        console.error(error);
+        await loadSlots(false);
         renderTimes();
-        return showMessage(message, "Este horário acabou de ficar indisponível. Escolha outro.", "error");
+        const text = /não está mais disponível|acabou de ser reservado|duplicate|unique/i.test(error.message)
+          ? "Este horário acabou de ficar indisponível. Escolha outro."
+          : (error.message || "Não foi possível confirmar o agendamento.");
+        return showMessage(message, text, "error");
       }
 
-      state.data.bookings[key] = {
-        id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
-        date: state.selectedDate,
-        time: state.selectedTime,
-        company,
-        participants,
-        phone,
-        email,
-        createdAt: new Date().toISOString()
-      };
-      saveData();
-
+      const result = Array.isArray(data) ? data[0] : data;
       const confirmedDate = dateKeyLabel(state.selectedDate, true);
-      const confirmedTime = state.selectedTime;
       document.getElementById("confirmationDetails").innerHTML =
-        `<strong>${confirmedDate}</strong><br>Horário: <strong>${confirmedTime}</strong><br>Empresa: <strong>${escapeHtml(company)}</strong><br>Participantes: <strong>${participants.length}</strong><br>E-mail: <strong>${escapeHtml(email)}</strong>`;
+        `<strong>${confirmedDate}</strong><br>Horário: <strong>${state.selectedTime}</strong><br>Nome: <strong>${escapeHtml(visitorName)}</strong><br>Empresa: <strong>${escapeHtml(company)}</strong><br>Participantes: <strong>${participantCount}</strong><br>E-mail: <strong>${escapeHtml(email)}</strong>${result?.codigo_confirmacao ? `<br>Código: <strong>${escapeHtml(result.codigo_confirmacao)}</strong>` : ""}`;
+      await loadSlots(false);
       document.getElementById("bookingPage").style.display = "none";
       document.getElementById("confirmationPage").classList.add("show");
       window.scrollTo({ top: 0, behavior: "smooth" });
     });
 
-    document.getElementById("newBookingBtn").addEventListener("click", () => {
+    document.getElementById("newBookingBtn").addEventListener("click", async () => {
       state.selectedDate = null;
       state.selectedTime = null;
-      state.participants = [""];
+      state.participantCount = 1;
       document.getElementById("bookingForm").reset();
       document.getElementById("formMessage").className = "message";
       document.getElementById("confirmationPage").classList.remove("show");
       document.getElementById("bookingPage").style.display = "block";
       document.getElementById("selectedDateLabel").textContent = "Selecione uma data acima";
       document.getElementById("timeGrid").innerHTML = '<div class="empty-state" style="grid-column:1/-1">Os horários aparecerão após a escolha da data.</div>';
+      await loadSlots(false);
       renderDates();
-      renderParticipants();
+      updateParticipantCounter();
+      updateProgressiveSections();
       updateSummary();
       window.scrollTo({ top: 0, behavior: "smooth" });
     });
 
-    // Administração
+    // O painel visual é mantido, mas dados pessoais permanecem protegidos pelo RLS.
     const dialog = document.getElementById("adminDialog");
     document.getElementById("openAdmin").addEventListener("click", () => dialog.showModal());
     document.getElementById("closeAdmin").addEventListener("click", () => dialog.close());
@@ -847,13 +850,12 @@
       if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) dialog.close();
     });
 
-    document.getElementById("adminLoginBtn").addEventListener("click", () => {
+    document.getElementById("adminLoginBtn").addEventListener("click", async () => {
       const password = document.getElementById("adminPassword").value;
-      if (password !== CONFIG.adminPassword) {
-        return showMessage(document.getElementById("adminMessage"), "Senha incorreta.", "error");
-      }
+      if (password !== CONFIG.adminPassword) return showMessage(document.getElementById("adminMessage"), "Senha incorreta.", "error");
       document.getElementById("adminLogin").hidden = true;
       document.getElementById("adminPanel").hidden = false;
+      await loadSlots(false);
       renderAdmin();
     });
 
@@ -863,75 +865,26 @@
         <div style="margin-top:16px">
           <strong style="display:block;margin-bottom:8px;color:var(--fiorella-navy);font-size:.87rem">${dateKeyLabel(date, true)}</strong>
           <div class="admin-slot-grid">
-            ${TIMES.map(time => {
-              const status = slotStatus(date, time);
-              return `<button type="button" class="admin-slot ${status}" data-date="${date}" data-time="${time}" ${status === "reserved" ? "disabled" : ""}>${time}</button>`;
-            }).join("")}
+            ${TIMES.map(time => `<button type="button" class="admin-slot ${slotStatus(date, time)}" disabled>${time}</button>`).join("")}
           </div>
-        </div>
-      `).join("");
-
-      container.querySelectorAll(".admin-slot:not(:disabled)").forEach(btn => btn.addEventListener("click", () => {
-        const key = `${btn.dataset.date}|${btn.dataset.time}`;
-        if (state.data.blocked[key]) delete state.data.blocked[key];
-        else state.data.blocked[key] = true;
-        saveData();
-        renderAdmin();
-        if (state.selectedDate === btn.dataset.date) renderTimes();
-      }));
-
-      const list = document.getElementById("bookingsList");
-      const bookings = Object.entries(state.data.bookings).sort((a,b) => a[0].localeCompare(b[0]));
-      list.innerHTML = bookings.length ? bookings.map(([key, b]) => `
-        <div class="booking-card">
-          <strong>${dateKeyLabel(b.date, true)} • ${b.time}</strong><br>
-          Empresa: ${escapeHtml(b.company)}<br>
-          Participantes (${b.participants.length}): ${b.participants.map(escapeHtml).join(", ")}<br>
-          Telefone: ${escapeHtml(b.phone)}<br>
-          E-mail: ${escapeHtml(b.email || "Não informado")}
-          <div class="booking-actions">
-            <button class="small-btn danger cancel-booking" data-key="${key}" type="button">Cancelar reserva</button>
-          </div>
-        </div>
-      `).join("") : '<div class="empty-state">Nenhuma reserva confirmada.</div>';
-
-      list.querySelectorAll(".cancel-booking").forEach(btn => btn.addEventListener("click", () => {
-        if (confirm("Deseja cancelar esta reserva?")) {
-          delete state.data.bookings[btn.dataset.key];
-          saveData();
-          renderAdmin();
-          renderTimes();
-        }
-      }));
+        </div>`).join("");
+      document.getElementById("bookingsList").innerHTML = '<div class="empty-state">Os dados pessoais estão protegidos no Supabase. Para administrar, cancelar e exportar reservas, conecte o painel ao Supabase Auth.</div>';
+      document.getElementById("exportCsv").disabled = true;
+      document.getElementById("clearAll").disabled = true;
     }
 
-    document.getElementById("exportCsv").addEventListener("click", () => {
-      const rows = [["Data", "Horário", "Empresa", "Participantes", "Quantidade", "Telefone", "E-mail"]];
-      Object.values(state.data.bookings)
-        .sort((a,b) => `${a.date}|${a.time}`.localeCompare(`${b.date}|${b.time}`))
-        .forEach(b => rows.push([b.date.split("-").reverse().join("/"), b.time, b.company, b.participants.join("; "), b.participants.length, b.phone, b.email || ""]));
-      const csv = "\uFEFF" + rows.map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(";")).join("\n");
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "reservas_fiorella_agosto_2026.csv";
-      a.click();
-      URL.revokeObjectURL(url);
-    });
+    document.getElementById("exportCsv").addEventListener("click", () => {});
+    document.getElementById("clearAll").addEventListener("click", () => {});
 
-    document.getElementById("clearAll").addEventListener("click", () => {
-      if (confirm("Apagar todas as reservas e bloqueios? Esta ação não pode ser desfeita.")) {
-        state.data = { bookings: {}, blocked: {} };
-        saveData();
-        renderAdmin();
-        renderTimes();
-      }
-    });
+    async function initialize() {
+      renderDates();
+      updateParticipantCounter();
+      updateProgressiveSections();
+      updateSummary();
+      await loadSlots();
+    }
 
-    renderDates();
-    renderParticipants();
-    updateSummary();
+    initialize();
   </script>
 </body>
 </html>
