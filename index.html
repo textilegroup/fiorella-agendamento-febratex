@@ -1,1018 +1,648 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#a40016" />
-  <title>Agendamento de Visitas | Fiorella</title>
-  <style>
-    :root {
-      --fiorella-red: #a40016;
-      --fiorella-red-dark: #790010;
-      --fiorella-navy: #17243b;
-      --fiorella-blue: #244c7c;
-      --bg: #f3f5f8;
-      --card: #ffffff;
-      --text: #1f2937;
-      --muted: #6b7280;
-      --line: #e5e7eb;
-      --success: #16794b;
-      --success-bg: #e9f8f0;
-      --danger: #b42318;
-      --danger-bg: #fff0ee;
-      --warning: #9a6700;
-      --warning-bg: #fff7df;
-      --shadow: 0 14px 34px rgba(23, 36, 59, .09);
-      --radius: 18px;
-    }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="theme-color" content="#1A1B22">
+<title>Cadastro de Visitas — Feira</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#2A1315;
+    --paper:#FFFFFF;
+    --paper-dim:#F3E3E2;
+    --red-dark:#5C1414;
+    --red:#8C2328;
+    --red-light:#F3E3E2;
+    --safe-t:env(safe-area-inset-top);
+    --safe-b:env(safe-area-inset-bottom);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;background:var(--ink);}
+  body{
+    font-family:'Inter',system-ui,sans-serif;
+    color:var(--ink);
+    -webkit-tap-highlight-color:transparent;
+    overscroll-behavior-y:none;
+  }
+  .app{
+    height:100dvh;
+    display:flex;
+    flex-direction:column;
+    background:var(--ink);
+  }
 
-    * { box-sizing: border-box; }
-    html { scroll-behavior: smooth; }
-    body {
-      margin: 0;
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      color: var(--text);
-      background:
-        radial-gradient(circle at top right, rgba(164,0,22,.09), transparent 31%),
-        linear-gradient(180deg, #fff 0, var(--bg) 240px);
-      min-height: 100vh;
-    }
+  /* ---------- Cabeçalho / ticket ---------- */
+  .ticket-head{
+    padding:calc(14px + var(--safe-t)) 20px 0;
+    background:var(--ink);
+    color:var(--paper);
+    flex-shrink:0;
+  }
+  .ticket-head .brand{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    gap:10px;
+  }
+  .ticket-head .brand h1{
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:700;
+    font-size:clamp(18px,5vw,22px);
+    margin:0;
+    letter-spacing:-0.01em;
+  }
+  .ticket-head .count{
+    font-family:'JetBrains Mono',monospace;
+    font-weight:700;
+    font-size:14px;
+    color:var(--red);
+    white-space:nowrap;
+  }
+  .dots{
+    display:flex;
+    gap:6px;
+    margin-top:12px;
+  }
+  .dots span{
+    height:4px;
+    flex:1;
+    background:rgba(255,255,255,0.18);
+    border-radius:2px;
+    overflow:hidden;
+    position:relative;
+  }
+  .dots span::after{
+    content:'';
+    position:absolute;inset:0;
+    background:var(--red);
+    transform:scaleX(0);
+    transform-origin:left;
+    transition:transform .35s ease;
+  }
+  .dots span.done::after{transform:scaleX(1);background:var(--red-dark);}
+  .dots span.active::after{transform:scaleX(1);background:var(--red);}
 
-    button, input { font: inherit; }
-    button { -webkit-tap-highlight-color: transparent; }
+  /* perfuração estilo ticket */
+  .perforation{
+    position:relative;
+    height:18px;
+    margin-top:12px;
+  }
+  .perforation::before{
+    content:'';
+    position:absolute;
+    left:0;right:0;top:9px;
+    border-top:2px dashed rgba(255,255,255,0.25);
+  }
+  .perforation i{
+    position:absolute;
+    top:0;width:18px;height:18px;
+    background:var(--ink);
+    border-radius:50%;
+  }
+  .perforation i.l{left:-9px;}
+  .perforation i.r{right:-9px;}
 
-    .topbar {
-      background: linear-gradient(120deg, var(--fiorella-red-dark), var(--fiorella-red));
-      color: #fff;
-      padding: 18px 18px 22px;
-      position: relative;
-      overflow: hidden;
-    }
+  /* ---------- Deck de cards ---------- */
+  .deck{
+    flex:1;
+    display:flex;
+    overflow-x:auto;
+    scroll-snap-type:x mandatory;
+    background:var(--paper);
+    border-top-left-radius:22px;
+    border-top-right-radius:22px;
+    scrollbar-width:none;
+  }
+  .deck::-webkit-scrollbar{display:none;}
 
-    .topbar::after {
-      content: "";
-      position: absolute;
-      width: 180px;
-      height: 180px;
-      border: 26px solid rgba(255,255,255,.08);
-      border-radius: 50%;
-      right: -90px;
-      top: -100px;
-    }
+  .card{
+    scroll-snap-align:start;
+    flex:0 0 100%;
+    width:100%;
+    height:100%;
+    padding:28px 22px 24px;
+    display:flex;
+    flex-direction:column;
+    overflow-y:auto;
+  }
 
-    .brand {
-      max-width: 760px;
-      margin: 0 auto;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      position: relative;
-      z-index: 1;
-    }
+  .card .step{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:18px;
+  }
+  .card .step .num{
+    flex-shrink:0;
+    width:34px;height:34px;
+    border-radius:50%;
+    background:var(--red-dark);
+    color:#fff;
+    font-family:'JetBrains Mono',monospace;
+    font-weight:700;
+    font-size:15px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .card .step .label{
+    font-family:'JetBrains Mono',monospace;
+    font-size:12px;
+    font-weight:700;
+    letter-spacing:.08em;
+    color:var(--red-dark);
+  }
+  .card .step .label small{
+    display:block;
+    font-family:'Inter',sans-serif;
+    font-weight:600;
+    letter-spacing:0;
+    color:#8A5654;
+    font-size:11px;
+    margin-top:1px;
+  }
+  .card h2{
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:700;
+    font-size:clamp(26px,8vw,34px);
+    line-height:1.1;
+    margin:0 0 8px;
+    letter-spacing:-0.02em;
+  }
+  .card p.sub{
+    margin:0 0 26px;
+    font-size:15px;
+    color:#7A4442;
+    line-height:1.4;
+  }
 
-    .brand-name {
-      font-weight: 900;
-      letter-spacing: .12em;
-      font-size: 1.28rem;
-    }
+  input[type=text],input[type=tel],textarea{
+    width:100%;
+    font-family:'Inter',sans-serif;
+    font-size:20px;
+    font-weight:500;
+    padding:16px 16px;
+    border-radius:14px;
+    border:2px solid #E3CFCE;
+    background:#FFFFFF;
+    color:var(--ink);
+    outline:none;
+    transition:border-color .15s;
+  }
+  input::placeholder,textarea::placeholder{color:#B98A88;}
+  input:focus,textarea:focus{border-color:var(--red);}
+  textarea{resize:vertical;min-height:120px;line-height:1.4;}
 
-    .brand-sub {
-      display: block;
-      margin-top: 3px;
-      letter-spacing: .04em;
-      font-size: .78rem;
-      opacity: .84;
-      font-weight: 600;
-    }
+  .field-error input,.field-error textarea{border-color:var(--red);}
+  .error-msg{
+    display:none;
+    color:var(--red);
+    font-size:13px;
+    font-weight:600;
+    margin-top:8px;
+  }
+  .field-error .error-msg{display:block;}
+  @keyframes shake{
+    10%,90%{transform:translateX(-2px)}
+    20%,80%{transform:translateX(4px)}
+    30%,50%,70%{transform:translateX(-8px)}
+    40%,60%{transform:translateX(8px)}
+  }
+  .shake{animation:shake .5s;}
 
-    .admin-button {
-      border: 1px solid rgba(255,255,255,.42);
-      color: #fff;
-      background: rgba(255,255,255,.12);
-      width: 42px;
-      height: 42px;
-      border-radius: 13px;
-      cursor: pointer;
-      display: grid;
-      place-items: center;
-    }
+  /* ---------- Telefones ---------- */
+  .phone-row{
+    display:flex;
+    gap:8px;
+    margin-bottom:10px;
+  }
+  .phone-row input{flex:1;}
+  .btn-icon{
+    flex-shrink:0;
+    width:52px;height:52px;
+    border-radius:14px;
+    border:2px solid #E3CFCE;
+    background:#fff;
+    font-size:22px;
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;
+    color:var(--ink);
+  }
+  .btn-icon.remove{color:var(--red);border-color:#E8B9B7;}
+  .add-phone{
+    display:flex;align-items:center;gap:8px;
+    background:none;border:none;
+    color:var(--red);
+    font-weight:700;
+    font-size:15px;
+    padding:10px 4px;
+    cursor:pointer;
+    align-self:flex-start;
+  }
+  .add-phone .plus{
+    width:26px;height:26px;border-radius:50%;
+    background:var(--red);color:#fff;
+    display:flex;align-items:center;justify-content:center;
+    font-size:16px;line-height:1;
+  }
 
-    main {
-      width: min(100% - 24px, 760px);
-      margin: -9px auto 40px;
-      position: relative;
-      z-index: 2;
-    }
+  /* ---------- Áudio ---------- */
+  .audio-box{
+    margin-top:16px;
+    padding:16px;
+    border:2px dashed #E3CFCE;
+    border-radius:16px;
+    background:#FBF3F2;
+  }
+  .audio-box .row{
+    display:flex;align-items:center;gap:14px;
+  }
+  .mic-btn{
+    width:58px;height:58px;
+    border-radius:50%;
+    border:none;
+    background:var(--red);
+    color:#fff;
+    font-size:24px;
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;
+    flex-shrink:0;
+    transition:background .15s, transform .15s;
+  }
+  .mic-btn.recording{
+    background:var(--red-dark);
+    animation:pulse 1.2s infinite;
+  }
+  @keyframes pulse{
+    0%{box-shadow:0 0 0 0 rgba(92,20,20,.45);}
+    70%{box-shadow:0 0 0 14px rgba(92,20,20,0);}
+    100%{box-shadow:0 0 0 0 rgba(92,20,20,0);}
+  }
+  .mic-btn svg{width:24px;height:24px;display:block;}
+  .mic-btn .stop-icon{
+    width:16px;height:16px;
+    background:#fff;
+    border-radius:4px;
+  }
 
-    .hero {
-      background: var(--card);
-      border: 1px solid rgba(229,231,235,.8);
-      box-shadow: var(--shadow);
-      border-radius: var(--radius);
-      padding: 22px;
-    }
+  /* barras de onda estilo Claude, ativas durante a gravação */
+  .waveform{
+    display:none;
+    align-items:center;
+    gap:3px;
+    height:22px;
+  }
+  .waveform.active{display:flex;}
+  .waveform span{
+    width:3px;
+    border-radius:3px;
+    background:var(--red);
+    animation:wave 1s ease-in-out infinite;
+  }
+  .waveform span:nth-child(1){height:8px;animation-delay:-0.9s;}
+  .waveform span:nth-child(2){height:16px;animation-delay:-0.6s;}
+  .waveform span:nth-child(3){height:22px;animation-delay:-0.3s;}
+  .waveform span:nth-child(4){height:14px;animation-delay:-0.75s;}
+  .waveform span:nth-child(5){height:19px;animation-delay:-0.45s;}
+  .waveform span:nth-child(6){height:10px;animation-delay:-0.15s;}
+  @keyframes wave{
+    0%,100%{transform:scaleY(0.35);}
+    50%{transform:scaleY(1);}
+  }
+  .audio-status{
+    font-family:'JetBrains Mono',monospace;
+    font-size:14px;
+    font-weight:700;
+  }
+  .audio-status small{
+    display:block;
+    font-family:'Inter',sans-serif;
+    font-weight:400;
+    color:#8A5654;
+    font-size:12px;
+    margin-top:2px;
+  }
+  .audio-player{
+    margin-top:12px;
+    width:100%;
+  }
+  .audio-actions{
+    display:flex;gap:10px;margin-top:10px;
+  }
+  .link-btn{
+    background:none;border:none;
+    color:var(--red);
+    font-weight:700;
+    font-size:13px;
+    padding:4px;
+    cursor:pointer;
+  }
+  .audio-hint{font-size:12px;color:#8A5654;margin-top:8px;}
 
-    h1 {
-      margin: 0;
-      color: var(--fiorella-navy);
-      font-size: clamp(1.42rem, 7vw, 2.1rem);
-      line-height: 1.08;
-    }
+  /* ---------- Revisão ---------- */
+  .review-item{
+    padding:14px 0;
+    border-bottom:1px solid #EBD8D7;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    cursor:pointer;
+    border-radius:10px;
+    transition:background .12s;
+  }
+  .review-item:active{background:#F3E3E2;}
+  .review-item .text-col{flex:1;min-width:0;}
+  .review-item .edit-chevron{
+    flex-shrink:0;
+    display:flex;
+    align-items:center;
+    gap:4px;
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    font-weight:700;
+    color:var(--red);
+    letter-spacing:.04em;
+  }
+  .review-item .edit-chevron svg{width:14px;height:14px;}
+  .review-item .lbl{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:.06em;
+    color:#8A5654;
+    text-transform:uppercase;
+  }
+  .review-item .val{
+    font-size:17px;
+    font-weight:600;
+    margin-top:4px;
+    word-break:break-word;
+  }
+  .review-item .val.empty{color:#C79A98;font-weight:500;}
 
-    .lead {
-      color: var(--muted);
-      line-height: 1.55;
-      margin: 10px 0 0;
-      font-size: .98rem;
-    }
+  /* ---------- Sucesso ---------- */
+  .success-box{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    gap:14px;
+  }
+  .success-box .check{
+    width:74px;height:74px;border-radius:50%;
+    background:var(--red);color:#fff;
+    display:flex;align-items:center;justify-content:center;
+    font-size:36px;
+  }
 
-    .section {
-      background: var(--card);
-      margin-top: 14px;
-      padding: 19px;
-      border-radius: var(--radius);
-      border: 1px solid var(--line);
-      box-shadow: 0 7px 20px rgba(23,36,59,.045);
-    }
-
-    .section-head {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 12px;
-      margin-bottom: 14px;
-    }
-
-    .section h2 {
-      margin: 0;
-      font-size: 1.06rem;
-      color: var(--fiorella-navy);
-    }
-
-    .section-note {
-      margin: 4px 0 0;
-      color: var(--muted);
-      font-size: .78rem;
-    }
-
-    .date-grid {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 8px;
-    }
-
-    .date-btn {
-      min-height: 76px;
-      padding: 8px 3px;
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      color: var(--text);
-      background: #fff;
-      cursor: pointer;
-      transition: .18s ease;
-    }
-
-    .date-btn span { display: block; }
-    .date-btn .weekday {
-      text-transform: uppercase;
-      letter-spacing: .06em;
-      color: var(--muted);
-      font-size: .63rem;
-      font-weight: 800;
-    }
-    .date-btn .day {
-      margin-top: 2px;
-      font-size: 1.25rem;
-      font-weight: 900;
-      color: var(--fiorella-navy);
-    }
-    .date-btn .month {
-      margin-top: 1px;
-      font-size: .69rem;
-      color: var(--muted);
-    }
-    .date-btn.selected {
-      background: var(--fiorella-red);
-      border-color: var(--fiorella-red);
-      box-shadow: 0 8px 16px rgba(164,0,22,.2);
-    }
-    .date-btn.selected * { color: white !important; }
-
-    .legend {
-      display: flex;
-      gap: 13px;
-      flex-wrap: wrap;
-      margin: 4px 0 12px;
-      color: var(--muted);
-      font-size: .75rem;
-    }
-
-    .legend span { display: inline-flex; align-items: center; gap: 6px; }
-    .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
-    .dot.free { background: var(--success); }
-    .dot.selected { background: var(--fiorella-red); }
-    .dot.reserved { background: #b9bec7; }
-
-    .time-grid {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 8px;
-    }
-
-    .time-btn {
-      border-radius: 12px;
-      min-height: 46px;
-      padding: 8px 3px;
-      background: var(--success-bg);
-      color: var(--success);
-      border: 1px solid rgba(22,121,75,.19);
-      font-weight: 800;
-      cursor: pointer;
-      position: relative;
-    }
-
-    .time-btn.selected {
-      background: var(--fiorella-red);
-      color: #fff;
-      border-color: var(--fiorella-red);
-      box-shadow: 0 6px 13px rgba(164,0,22,.18);
-    }
-
-    .time-btn.reserved, .time-btn.blocked {
-      background: #f1f2f4;
-      color: #9ca3af;
-      border-color: #e3e5e8;
-      cursor: not-allowed;
-      text-decoration: line-through;
-    }
-
-    .empty-state {
-      border: 1px dashed #cfd4dc;
-      background: #fafbfc;
-      padding: 20px;
-      border-radius: 13px;
-      text-align: center;
-      color: var(--muted);
-      font-size: .9rem;
-    }
-
-    .field { margin-top: 14px; }
-    label {
-      display: block;
-      font-size: .82rem;
-      font-weight: 800;
-      color: var(--fiorella-navy);
-      margin-bottom: 7px;
-    }
-
-    input[type="text"], input[type="tel"], input[type="email"] {
-      width: 100%;
-      min-height: 49px;
-      border: 1px solid #d5d9df;
-      border-radius: 12px;
-      padding: 12px 13px;
-      background: #fff;
-      color: var(--text);
-      outline: none;
-      transition: .15s ease;
-    }
-
-    input:focus {
-      border-color: var(--fiorella-blue);
-      box-shadow: 0 0 0 3px rgba(36,76,124,.11);
-    }
-
-    .progressive-section[hidden] { display: none; }
-
-    .counter-control {
-      display: grid;
-      grid-template-columns: 52px 1fr 52px;
-      gap: 8px;
-      align-items: center;
-    }
-
-    .counter-control button {
-      min-height: 49px;
-      border: 1px solid #d5d9df;
-      border-radius: 12px;
-      background: #f7f8fb;
-      color: var(--fiorella-navy);
-      font-size: 1.35rem;
-      font-weight: 900;
-      cursor: pointer;
-    }
-
-    .counter-control button:disabled { opacity: .35; cursor: not-allowed; }
-
-    .counter-value {
-      min-height: 49px;
-      display: grid;
-      place-items: center;
-      border: 1px solid #d5d9df;
-      border-radius: 12px;
-      background: #fff;
-      color: var(--fiorella-navy);
-      font-weight: 900;
-      font-size: 1.05rem;
-    }
-
-    .summary {
-      margin-top: 17px;
-      padding: 14px;
-      background: #f7f8fb;
-      border: 1px solid var(--line);
-      border-radius: 13px;
-      color: var(--muted);
-      font-size: .85rem;
-      line-height: 1.55;
-    }
-
-    .summary strong { color: var(--fiorella-navy); }
-
-    .submit-btn {
-      border: none;
-      width: 100%;
-      min-height: 54px;
-      margin-top: 14px;
-      border-radius: 14px;
-      background: linear-gradient(120deg, var(--fiorella-red-dark), var(--fiorella-red));
-      color: #fff;
-      font-weight: 900;
-      cursor: pointer;
-      box-shadow: 0 10px 18px rgba(164,0,22,.19);
-    }
-
-    .submit-btn:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; }
-
-    .message {
-      display: none;
-      margin-top: 12px;
-      padding: 13px;
-      border-radius: 12px;
-      font-size: .87rem;
-      line-height: 1.45;
-    }
-    .message.show { display: block; }
-    .message.error { color: var(--danger); background: var(--danger-bg); border: 1px solid #f2cac5; }
-    .message.success { color: var(--success); background: var(--success-bg); border: 1px solid #bfe4cf; }
-
-    .confirmation-page {
-      display: none;
-      min-height: 62vh;
-      align-items: center;
-      justify-content: center;
-    }
-    .confirmation-page.show { display: flex; }
-    .confirmation-card {
-      width: 100%;
-      text-align: center;
-      background: var(--card);
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      padding: 30px 20px;
-    }
-    .confirmation-icon {
-      width: 66px;
-      height: 66px;
-      margin: 0 auto 16px;
-      border-radius: 50%;
-      display: grid;
-      place-items: center;
-      background: var(--success-bg);
-      color: var(--success);
-      font-size: 2rem;
-      font-weight: 900;
-    }
-    .confirmation-card h2 { margin: 0; color: var(--fiorella-navy); font-size: 1.45rem; }
-    .confirmation-details {
-      margin: 16px 0 4px;
-      padding: 14px;
-      border-radius: 13px;
-      background: #f7f8fb;
-      color: var(--muted);
-      line-height: 1.55;
-    }
-
-    footer {
-      text-align: center;
-      color: var(--muted);
-      font-size: .72rem;
-      padding: 4px 16px 26px;
-    }
-
-    dialog {
-      width: min(94vw, 680px);
-      max-height: 88vh;
-      border: 0;
-      border-radius: 18px;
-      padding: 0;
-      box-shadow: 0 24px 70px rgba(0,0,0,.27);
-    }
-    dialog::backdrop { background: rgba(13,22,37,.62); backdrop-filter: blur(3px); }
-
-    .modal-head {
-      padding: 17px 19px;
-      background: var(--fiorella-navy);
-      color: #fff;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .modal-head h3 { margin: 0; font-size: 1.05rem; }
-    .close-modal { border: 0; background: transparent; color: #fff; font-size: 1.5rem; cursor: pointer; }
-    .modal-body { padding: 18px; overflow-y: auto; max-height: calc(88vh - 68px); }
-
-    .admin-tools { display: flex; gap: 8px; flex-wrap: wrap; margin: 14px 0; }
-    .small-btn {
-      border: 1px solid var(--line);
-      background: #fff;
-      color: var(--fiorella-navy);
-      border-radius: 10px;
-      padding: 9px 11px;
-      cursor: pointer;
-      font-weight: 800;
-      font-size: .78rem;
-    }
-    .small-btn.danger { color: var(--danger); border-color: #ecc7c3; background: var(--danger-bg); }
-
-    .booking-card {
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      padding: 12px;
-      margin-top: 9px;
-      font-size: .82rem;
-      line-height: 1.48;
-    }
-    .booking-card strong { color: var(--fiorella-navy); }
-    .booking-actions { margin-top: 9px; display: flex; gap: 7px; flex-wrap: wrap; }
-
-    .admin-slot-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; }
-    .admin-slot {
-      border: 1px solid var(--line);
-      border-radius: 9px;
-      padding: 8px 3px;
-      background: #fff;
-      cursor: pointer;
-      font-size: .72rem;
-      font-weight: 800;
-    }
-    .admin-slot.blocked { background: var(--warning-bg); color: var(--warning); border-color: #ead493; }
-    .admin-slot.reserved { background: #f1f2f4; color: #9097a2; cursor: not-allowed; }
-
-    @media (max-width: 520px) {
-      .hero, .section { padding: 16px; }
-      .date-grid { gap: 6px; }
-      .time-grid, .admin-slot-grid { grid-template-columns: repeat(3, 1fr); }
-      .date-btn { min-height: 70px; }
-    }
-  </style>
+  /* ---------- Navegação ---------- */
+  .controls{
+    flex-shrink:0;
+    display:flex;
+    gap:10px;
+    padding:14px 20px calc(16px + var(--safe-b));
+    background:var(--paper);
+  }
+  .btn{
+    flex:1;
+    border:none;
+    border-radius:16px;
+    padding:17px 16px;
+    font-family:'Inter',sans-serif;
+    font-weight:700;
+    font-size:17px;
+    cursor:pointer;
+    display:flex;align-items:center;justify-content:center;gap:8px;
+  }
+  .btn-ghost{
+    background:transparent;
+    border:2px solid #E3CFCE;
+    color:var(--ink);
+    flex:0 0 96px;
+  }
+  .btn-primary{
+    background:var(--ink);
+    color:var(--paper);
+  }
+  .btn-primary:disabled{opacity:.5;}
+  .btn-submit{
+    background:var(--red);
+    color:var(--ink);
+  }
+  .btn:active{transform:scale(0.98);}
+  .submit-error{
+    color:var(--red);
+    font-size:13px;
+    font-weight:600;
+    text-align:center;
+    margin:0 20px 8px;
+    display:none;
+  }
+</style>
 </head>
 <body>
-  <header class="topbar">
+
+<div class="app">
+  <div class="ticket-head">
     <div class="brand">
-      <div>
-        <div class="brand-name">FIORELLA</div>
-        <span class="brand-sub">AGENDAMENTO DE VISITAS</span>
-      </div>
-      <button class="admin-button" id="openAdmin" aria-label="Abrir administração" title="Administração">⚙</button>
+      <h1>Cadastro de Visitas</h1>
+      <span class="count" id="countLabel">01 / 05</span>
     </div>
-  </header>
+    <div class="dots" id="dots"></div>
+    <div class="perforation"><i class="l"></i><i class="r"></i></div>
+  </div>
 
-  <main id="bookingPage">
-    <section class="hero">
-      <h1>Agende sua visita</h1>
-      <p class="lead">Escolha a data e um horário disponível. Os atendimentos são organizados em intervalos de 30 minutos.</p>
+  <main class="deck" id="deck">
+
+    <!-- CARD 1 — Nome -->
+    <section class="card" data-field="nome" id="card-nome">
+      <div class="step"><span class="num">1</span><span class="label">Etapa 1 de 5<small>Visitante</small></span></div>
+      <h2>Qual o nome do visitante?</h2>
+      <p class="sub">Nome completo de quem passou pelo estande.</p>
+      <input type="text" id="inputNome" placeholder="Ex: Ana Ribeiro" autocomplete="name">
+      <div class="error-msg">Preencha o nome para continuar.</div>
     </section>
 
-    <section class="section">
-      <div class="section-head">
-        <div>
-          <h2>1. Escolha a data</h2>
-          <p class="section-note">Período exclusivo: 18 a 21 de agosto de 2026</p>
-        </div>
-      </div>
-      <div id="dateGrid" class="date-grid"></div>
+    <!-- CARD 2 — Empresa -->
+    <section class="card" data-field="empresa" id="card-empresa">
+      <div class="step"><span class="num">2</span><span class="label">Etapa 2 de 5<small>Empresa</small></span></div>
+      <h2>Empresa ou instituição?</h2>
+      <p class="sub">Se for autônomo ou não souber, pode deixar em branco.</p>
+      <input type="text" id="inputEmpresa" placeholder="Ex: Fiorella Distribuidora" autocomplete="organization">
     </section>
 
-    <section class="section progressive-section" id="step2" hidden>
-      <div class="section-head">
-        <div>
-          <h2>2. Escolha o horário</h2>
-          <p class="section-note" id="selectedDateLabel">Selecione uma data acima</p>
-        </div>
-      </div>
-      <div class="legend">
-        <span><i class="dot free"></i>Vago</span>
-        <span><i class="dot selected"></i>Selecionado</span>
-        <span><i class="dot reserved"></i>Reservado</span>
-      </div>
-      <div id="timeGrid" class="time-grid">
-        <div class="empty-state" style="grid-column:1/-1">Os horários aparecerão após a escolha da data.</div>
-      </div>
+    <!-- CARD 3 — Telefones -->
+    <section class="card" data-field="telefones" id="card-telefones">
+      <div class="step"><span class="num">3</span><span class="label">Etapa 3 de 5<small>Contato</small></span></div>
+      <h2>Telefone de contato</h2>
+      <p class="sub">Adicione quantos números forem necessários.</p>
+      <div id="phoneList"></div>
+      <button type="button" class="add-phone" id="addPhoneBtn">
+        <span class="plus">+</span> Adicionar outro número
+      </button>
+      <div class="error-msg" id="phoneError">Adicione ao menos um telefone.</div>
     </section>
 
-    <section class="section progressive-section" id="step3" hidden>
-      <div class="section-head">
-        <div>
-          <h2>3. Informe os dados da visita</h2>
-          <p class="section-note">Preencha os campos para concluir a reserva.</p>
-        </div>
-      </div>
+    <!-- CARD 4 — Observações -->
+    <section class="card" data-field="observacoes" id="card-observacoes">
+      <div class="step"><span class="num">4</span><span class="label">Etapa 4 de 5<small>Observações</small></span></div>
+      <h2>Alguma observação?</h2>
+      <p class="sub">Escreva ou grave um áudio rápido sobre a conversa.</p>
+      <textarea id="inputObs" placeholder="Ex: interessado na linha premium, pediu orçamento..."></textarea>
 
-      <form id="bookingForm" novalidate>
-        <div class="field">
-          <label for="visitorName">Seu nome *</label>
-          <input id="visitorName" name="visitorName" type="text" maxlength="100" autocomplete="name" placeholder="Digite seu nome" required />
-        </div>
-
-        <div class="field">
-          <label for="company">Empresa *</label>
-          <input id="company" name="company" type="text" maxlength="100" autocomplete="organization" placeholder="Digite o nome da empresa" required />
-        </div>
-
-        <div class="field">
-          <label>Número de participantes *</label>
-          <div class="counter-control" aria-label="Número de participantes">
-            <button type="button" id="decreaseParticipants" aria-label="Diminuir número de participantes">−</button>
-            <div class="counter-value" id="participantCount" aria-live="polite">1 participante</div>
-            <button type="button" id="increaseParticipants" aria-label="Aumentar número de participantes">+</button>
+      <div class="audio-box">
+        <div class="row">
+          <button type="button" class="mic-btn" id="micBtn" aria-label="Gravar áudio">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="micIcon">
+              <path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+              <path d="M19 10v1a7 7 0 0 1-14 0v-1"/>
+              <line x1="12" y1="18" x2="12" y2="22"/>
+              <line x1="9" y1="22" x2="15" y2="22"/>
+            </svg>
+          </button>
+          <div class="audio-status">
+            <span id="audioStatusText">Gravar áudio</span>
+            <small id="audioStatusSub">Toque no microfone para começar</small>
+          </div>
+          <div class="waveform" id="waveform">
+            <span></span><span></span><span></span><span></span><span></span><span></span>
           </div>
         </div>
-
-        <div class="field">
-          <label for="phone">Telefone para contato com DDD *</label>
-          <input id="phone" name="phone" type="tel" inputmode="numeric" autocomplete="tel" maxlength="15" placeholder="(11) 99999-9999" required />
+        <audio class="audio-player" id="audioPlayer" controls style="display:none"></audio>
+        <div class="audio-actions" id="audioActions" style="display:none">
+          <button type="button" class="link-btn" id="reRecordBtn">Regravar</button>
+          <button type="button" class="link-btn" id="deleteAudioBtn">Excluir áudio</button>
         </div>
-
-        <div class="field">
-          <label for="email">Insira seu e-mail para receber a confirmação do agendamento *</label>
-          <input id="email" name="email" type="email" maxlength="120" autocomplete="email" placeholder="nome@empresa.com.br" required />
-        </div>
-
-        <div class="summary" id="bookingSummary">
-          <strong>Resumo:</strong> selecione uma data e um horário.
-        </div>
-
-        <button class="submit-btn" id="submitBtn" type="submit">Confirmar agendamento</button>
-        <div class="message" id="formMessage" role="alert"></div>
-      </form>
+        <div class="audio-hint" id="audioHint">O áudio é enviado junto com o cadastro.</div>
+      </div>
     </section>
+
+    <!-- CARD 5 — Revisão -->
+    <section class="card" data-field="revisao" id="card-revisao">
+      <div class="step"><span class="num">5</span><span class="label">Etapa 5 de 5<small>Confirmar</small></span></div>
+      <h2>Confira antes de enviar</h2>
+      <p class="sub">Toque em "Cadastrar" para salvar esta visita.</p>
+
+      <div class="review-item" data-target="card-nome">
+        <div class="text-col">
+          <div class="lbl">Nome</div>
+          <div class="val" id="revNome">—</div>
+        </div>
+        <div class="edit-chevron">Editar
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+        </div>
+      </div>
+      <div class="review-item" data-target="card-empresa">
+        <div class="text-col">
+          <div class="lbl">Empresa</div>
+          <div class="val" id="revEmpresa">—</div>
+        </div>
+        <div class="edit-chevron">Editar
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+        </div>
+      </div>
+      <div class="review-item" data-target="card-telefones">
+        <div class="text-col">
+          <div class="lbl">Telefones</div>
+          <div class="val" id="revTelefones">—</div>
+        </div>
+        <div class="edit-chevron">Editar
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+        </div>
+      </div>
+      <div class="review-item" data-target="card-observacoes">
+        <div class="text-col">
+          <div class="lbl">Observações</div>
+          <div class="val" id="revObs">—</div>
+        </div>
+        <div class="edit-chevron">Editar
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+        </div>
+      </div>
+      <div class="review-item" data-target="card-observacoes">
+        <div class="text-col">
+          <div class="lbl">Áudio</div>
+          <div class="val" id="revAudio">—</div>
+        </div>
+        <div class="edit-chevron">Editar
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+        </div>
+      </div>
+    </section>
+
+    <!-- CARD 6 — Sucesso (oculto até envio) -->
+    <section class="card" data-field="sucesso" id="card-sucesso" style="display:none">
+      <div class="success-box">
+        <div class="check">✓</div>
+        <h2 style="margin:0">Visita cadastrada!</h2>
+        <p class="sub" style="margin:0">Os dados foram enviados com sucesso.</p>
+        <button type="button" class="btn btn-primary" id="newVisitBtn" style="margin-top:10px;padding:14px 26px;flex:none">Cadastrar nova visita</button>
+      </div>
+    </section>
+
   </main>
 
-  <main id="confirmationPage" class="confirmation-page" aria-live="polite">
-    <section class="confirmation-card">
-      <div class="confirmation-icon">✓</div>
-      <h2>Agendamento confirmado!</h2>
-      <div class="confirmation-details" id="confirmationDetails"></div>
-      <p class="lead" style="margin:12px 0 0">A confirmação foi registrada com o e-mail informado.</p>
-      <button class="submit-btn" id="newBookingBtn" type="button">Novo agendamento</button>
-    </section>
-  </main>
+  <div class="submit-error" id="submitError"></div>
+  <div class="controls" id="controls">
+    <button type="button" class="btn btn-ghost" id="backBtn">← Voltar</button>
+    <button type="button" class="btn btn-primary" id="nextBtn">Avançar →</button>
+  </div>
+</div>
 
-  <footer>Fiorella Brasil • Agenda de visitas 2026</footer>
+<script type="module">
+/* ======================================================
+   CONFIGURAÇÃO DO SUPABASE
+   Troque pelos dados do seu projeto (Settings > API).
+   O restante do formulário funciona normalmente mesmo
+   antes de configurar isso — o erro só aparece ao tentar
+   enviar (Cadastrar), para não travar o resto da página.
+   ====================================================== */
+const SUPABASE_URL = 'COLE_AQUI_A_SUPABASE_URL';
+const SUPABASE_ANON_KEY = 'COLE_AQUI_A_SUPABASE_ANON_KEY';
+const AUDIO_BUCKET = 'observacoes-audio'; // bucket público de Storage
 
-  <dialog id="adminDialog">
-    <div class="modal-head">
-      <h3>Administração da agenda</h3>
-      <button class="close-modal" id="closeAdmin" aria-label="Fechar">×</button>
-    </div>
-    <div class="modal-body">
-      <div id="adminLogin">
-        <label for="adminPassword">Senha de acesso</label>
-        <input type="text" id="adminPassword" placeholder="Digite a senha" autocomplete="off" />
-        <button class="submit-btn" type="button" id="adminLoginBtn">Entrar</button>
-        <div class="message" id="adminMessage"></div>
-      </div>
+let supabase = null;
+function getSupabase(){
+  if(supabase) return supabase;
+  if(!SUPABASE_URL || SUPABASE_URL.startsWith('COLE_AQUI') || !SUPABASE_ANON_KEY || SUPABASE_ANON_KEY.startsWith('COLE_AQUI')){
+    throw new Error('Configure a SUPABASE_URL e a SUPABASE_ANON_KEY no início do arquivo.');
+  }
+  supabase = window.__supabaseClient;
+  return supabase;
+}
 
-      <div id="adminPanel" hidden>
-        <p class="section-note">Toque em um horário livre para bloquear ou desbloquear. Reservas podem ser canceladas abaixo.</p>
-        <div class="message" id="adminPanelMessage"></div>
-        <div class="admin-tools">
-          <button type="button" class="small-btn" id="exportCsv">Exportar reservas em CSV</button>
-          <button type="button" class="small-btn danger" id="clearAll">Limpar todos os dados</button>
-        </div>
-        <div id="adminDays"></div>
-        <h3 style="margin:22px 0 6px;color:var(--fiorella-navy);font-size:1rem">Reservas confirmadas</h3>
-        <div id="bookingsList"></div>
-      </div>
-    </div>
-  </dialog>
-
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script>
-    const CONFIG = {
-      dates: ["2026-08-18", "2026-08-19", "2026-08-20", "2026-08-21"],
-      startTime: "14:00",
-      endTime: "19:30",
-      intervalMinutes: 30,
-      adminPassword: "fiorella2026",
-      supabaseUrl: "https://eepmlsdbtcvsjxdcvimi.supabase.co",
-      supabaseKey: "sb_publishable_048Dv-jRALn34Ythhj9ngA_fZ1gsNI_"
-    };
-
-    const db = window.supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseKey);
-    const state = {
-      selectedDate: null,
-      selectedTime: null,
-      participantCount: 1,
-      slots: new Map(),
-      bookings: []
-    };
-
-    function dateKeyLabel(dateKey, full = false) {
-      const date = new Date(dateKey + "T12:00:00");
-      return new Intl.DateTimeFormat("pt-BR", full
-        ? { weekday: "long", day: "2-digit", month: "long", year: "numeric" }
-        : { weekday: "short", day: "2-digit", month: "short" }
-      ).format(date);
+// Carrega o SDK do Supabase de forma isolada, sem travar o resto do script
+// caso a URL ainda não tenha sido configurada.
+const supabaseReady = import('https://esm.sh/@supabase/supabase-js@2')
+  .then(({ createClient }) => {
+    if(!SUPABASE_URL.startsWith('COLE_AQUI') && !SUPABASE_ANON_KEY.startsWith('COLE_AQUI')){
+      window.__supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     }
+  })
+  .catch(() => { /* sem internet ou SDK indisponível — tratado no envio */ });
 
-    function generateTimes() {
-      const times = [];
-      const [startH, startM] = CONFIG.startTime.split(":").map(Number);
-      const [endH, endM] = CONFIG.endTime.split(":").map(Number);
-      let current = startH * 60 + startM;
-      const end = endH * 60 + endM;
-      while (current <= end) {
-        const h = String(Math.floor(current / 60)).padStart(2, "0");
-        const m = String(current % 60).padStart(2, "0");
-        times.push(`${h}:${m}`);
-        current += CONFIG.intervalMinutes;
-      }
-      return times;
-    }
+/* ---------------- Estado ---------------- */
+const state = {
+  audioBlob: null,
+  mediaRecorder: null,
+  chunks: [],
+  recording: false,
+};
 
-    const TIMES = generateTimes();
-    const normalizeTime = value => String(value || "").slice(0, 5);
+const deck = document.getElementById('deck');
+const cards = () => Array.from(deck.querySelectorAll('.card')).filter(c => c.style.display !== 'none');
+const dotsEl = document.getElementById('dots');
+const countLabel = document.getElementById('countLabel');
+const backBtn = document.getElementById('backBtn');
+const nextBtn = document.getElementById('nextBtn');
+const controls = document.getElementById('controls');
+const submitError = document.getElementById('submitError');
 
-    async function loadSlots(showError = true) {
-      const { data, error } = await db.rpc("listar_horarios_visita");
-      if (error) {
-        console.error(error);
-        if (showError) {
-          const message = document.getElementById("formMessage");
-          showMessage(message, "Não foi possível carregar os horários. Atualize a página e tente novamente.", "error");
-        }
-        return false;
-      }
-      state.slots.clear();
-      (data || []).forEach(slot => {
-        state.slots.set(`${slot.data_visita}|${normalizeTime(slot.horario)}`, slot.status);
-      });
-      if (state.selectedDate) renderTimes();
-      return true;
-    }
+let current = 0;
 
-    function renderDates() {
-      const grid = document.getElementById("dateGrid");
-      grid.innerHTML = CONFIG.dates.map(dateKey => {
-        const date = new Date(dateKey + "T12:00:00");
-        const weekday = new Intl.DateTimeFormat("pt-BR", { weekday: "short" }).format(date).replace(".", "");
-        const day = String(date.getDate()).padStart(2, "0");
-        return `<button type="button" class="date-btn ${state.selectedDate === dateKey ? "selected" : ""}" data-date="${dateKey}">
-          <span class="weekday">${weekday}</span><span class="day">${day}</span><span class="month">agosto</span>
-        </button>`;
-      }).join("");
-
-      grid.querySelectorAll(".date-btn").forEach(btn => btn.addEventListener("click", async () => {
-        state.selectedDate = btn.dataset.date;
-        state.selectedTime = null;
-        renderDates();
-        renderTimes();
-        updateProgressiveSections();
-        updateSummary();
-        await loadSlots(false);
-      }));
-    }
-
-    function slotStatus(date, time) {
-      const status = state.slots.get(`${date}|${time}`) || "disponivel";
-      if (status === "reservado") return "reserved";
-      if (status === "bloqueado") return "blocked";
-      return "free";
-    }
-
-    function renderTimes() {
-      const grid = document.getElementById("timeGrid");
-      const label = document.getElementById("selectedDateLabel");
-      if (!state.selectedDate) return;
-
-      label.textContent = dateKeyLabel(state.selectedDate, true);
-      grid.innerHTML = TIMES.map(time => {
-        const status = slotStatus(state.selectedDate, time);
-        const selected = state.selectedTime === time;
-        const disabled = status !== "free";
-        return `<button type="button" class="time-btn ${status} ${selected ? "selected" : ""}" data-time="${time}" ${disabled ? "disabled" : ""}>${time}</button>`;
-      }).join("");
-
-      grid.querySelectorAll(".time-btn:not(:disabled)").forEach(btn => btn.addEventListener("click", () => {
-        state.selectedTime = btn.dataset.time;
-        renderTimes();
-        updateProgressiveSections();
-        updateSummary();
-      }));
-    }
-
-    function updateParticipantCounter() {
-      const count = state.participantCount;
-      document.getElementById("participantCount").textContent = `${count} ${count === 1 ? "participante" : "participantes"}`;
-      document.getElementById("decreaseParticipants").disabled = count <= 1;
-      document.getElementById("increaseParticipants").disabled = count >= 5;
-    }
-
-    function updateProgressiveSections() {
-      document.getElementById("step2").hidden = !state.selectedDate;
-      document.getElementById("step3").hidden = !(state.selectedDate && state.selectedTime);
-    }
-
-    function escapeHtml(value = "") {
-      return String(value).replace(/[&<>'"]/g, char => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", "'":"&#39;", '"':"&quot;" }[char]));
-    }
-
-    function updateSummary() {
-      const box = document.getElementById("bookingSummary");
-      if (!state.selectedDate || !state.selectedTime) {
-        box.innerHTML = "<strong>Resumo:</strong> selecione uma data e um horário.";
-        return;
-      }
-      box.innerHTML = `<strong>Resumo:</strong> ${dateKeyLabel(state.selectedDate, true)}, às <strong>${state.selectedTime}</strong>, para <strong>${state.participantCount}</strong> ${state.participantCount === 1 ? "participante" : "participantes"}.`;
-    }
-
-    function formatPhone(value) {
-      const digits = value.replace(/\D/g, "").slice(0, 11);
-      if (digits.length <= 2) return digits ? `(${digits}` : "";
-      if (digits.length <= 6) return `(${digits.slice(0,2)}) ${digits.slice(2)}`;
-      if (digits.length <= 10) return `(${digits.slice(0,2)}) ${digits.slice(2,6)}-${digits.slice(6)}`;
-      return `(${digits.slice(0,2)}) ${digits.slice(2,7)}-${digits.slice(7)}`;
-    }
-
-    function showMessage(element, text, type) {
-      element.className = `message show ${type}`;
-      element.textContent = text;
-    }
-
-    document.getElementById("decreaseParticipants").addEventListener("click", () => {
-      if (state.participantCount > 1) state.participantCount--;
-      updateParticipantCounter();
-      updateSummary();
-    });
-
-    document.getElementById("increaseParticipants").addEventListener("click", () => {
-      if (state.participantCount < 5) state.participantCount++;
-      updateParticipantCounter();
-      updateSummary();
-    });
-
-    document.getElementById("phone").addEventListener("input", e => {
-      e.target.value = formatPhone(e.target.value);
-    });
-
-    document.getElementById("bookingForm").addEventListener("submit", async e => {
-      e.preventDefault();
-      const message = document.getElementById("formMessage");
-      const submitBtn = document.getElementById("submitBtn");
-      const visitorName = document.getElementById("visitorName").value.trim();
-      const company = document.getElementById("company").value.trim();
-      const phone = document.getElementById("phone").value.trim();
-      const email = document.getElementById("email").value.trim();
-      const participantCount = state.participantCount;
-
-      if (!state.selectedDate || !state.selectedTime) return showMessage(message, "Selecione uma data e um horário disponível.", "error");
-      if (!visitorName) return showMessage(message, "Informe seu nome.", "error");
-      if (!company) return showMessage(message, "Informe o nome da empresa.", "error");
-      if (participantCount < 1 || participantCount > 5) return showMessage(message, "Informe entre 1 e 5 participantes.", "error");
-      if (phone.replace(/\D/g, "").length < 10) return showMessage(message, "Informe um telefone válido com DDD.", "error");
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return showMessage(message, "Informe um e-mail válido para receber a confirmação.", "error");
-
-      submitBtn.disabled = true;
-      submitBtn.textContent = "Confirmando...";
-      message.className = "message";
-
-      const { data, error } = await db.rpc("reservar_visita", {
-        p_data_visita: state.selectedDate,
-        p_horario: state.selectedTime,
-        p_nome: visitorName,
-        p_empresa: company,
-        p_numero_participantes: participantCount,
-        p_telefone: phone,
-        p_email: email,
-        p_user_agent: navigator.userAgent
-      });
-
-      submitBtn.disabled = false;
-      submitBtn.textContent = "Confirmar agendamento";
-
-      if (error) {
-        console.error(error);
-        await loadSlots(false);
-        renderTimes();
-        const text = /não está mais disponível|acabou de ser reservado|duplicate|unique/i.test(error.message)
-          ? "Este horário acabou de ficar indisponível. Escolha outro."
-          : (error.message || "Não foi possível confirmar o agendamento.");
-        return showMessage(message, text, "error");
-      }
-
-      const result = Array.isArray(data) ? data[0] : data;
-      const confirmedDate = dateKeyLabel(state.selectedDate, true);
-      document.getElementById("confirmationDetails").innerHTML =
-        `<strong>${confirmedDate}</strong><br>Horário: <strong>${state.selectedTime}</strong><br>Nome: <strong>${escapeHtml(visitorName)}</strong><br>Empresa: <strong>${escapeHtml(company)}</strong><br>Participantes: <strong>${participantCount}</strong><br>E-mail: <strong>${escapeHtml(email)}</strong>${result?.codigo_confirmacao ? `<br>Código: <strong>${escapeHtml(result.codigo_confirmacao)}</strong>` : ""}`;
-      await loadSlots(false);
-      document.getElementById("bookingPage").style.display = "none";
-      document.getElementById("confirmationPage").classList.add("show");
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    });
-
-    document.getElementById("newBookingBtn").addEventListener("click", async () => {
-      state.selectedDate = null;
-      state.selectedTime = null;
-      state.participantCount = 1;
-      document.getElementById("bookingForm").reset();
-      document.getElementById("formMessage").className = "message";
-      document.getElementById("confirmationPage").classList.remove("show");
-      document.getElementById("bookingPage").style.display = "block";
-      document.getElementById("selectedDateLabel").textContent = "Selecione uma data acima";
-      document.getElementById("timeGrid").innerHTML = '<div class="empty-state" style="grid-column:1/-1">Os horários aparecerão após a escolha da data.</div>';
-      await loadSlots(false);
-      renderDates();
-      updateParticipantCounter();
-      updateProgressiveSections();
-      updateSummary();
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    });
-
-    // Administração simples dentro do HTML, utilizando funções RPC protegidas pela senha definida.
-    const dialog = document.getElementById("adminDialog");
-    document.getElementById("openAdmin").addEventListener("click", () => dialog.showModal());
-    document.getElementById("closeAdmin").addEventListener("click", () => dialog.close());
-    dialog.addEventListener("click", e => {
-      const rect = dialog.getBoundingClientRect();
-      if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) dialog.close();
-    });
-
-    document.getElementById("adminLoginBtn").addEventListener("click", async () => {
-      const password = document.getElementById("adminPassword").value;
-      if (password !== CONFIG.adminPassword) {
-        return showMessage(document.getElementById("adminMessage"), "Senha incorreta.", "error");
-      }
-      document.getElementById("adminLoginBtn").disabled = true;
-      document.getElementById("adminLoginBtn").textContent = "Carregando...";
-      const ok = await loadAdminData();
-      document.getElementById("adminLoginBtn").disabled = false;
-      document.getElementById("adminLoginBtn").textContent = "Entrar";
-      if (!ok) return;
-      document.getElementById("adminLogin").hidden = true;
-      document.getElementById("adminPanel").hidden = false;
-      renderAdmin();
-    });
-
-    async function loadAdminData() {
-      const { data, error } = await db.rpc("admin_listar_agendamentos_visita", {
-        p_senha: CONFIG.adminPassword
-      });
-      if (error) {
-        console.error(error);
-        showMessage(document.getElementById("adminMessage"), error.message || "Não foi possível abrir a administração.", "error");
-        return false;
-      }
-      state.bookings = Array.isArray(data) ? data : (data?.agendamentos || []);
-      await loadSlots(false);
-      return true;
-    }
-
-    function renderAdmin() {
-      const container = document.getElementById("adminDays");
-      container.innerHTML = CONFIG.dates.map(date => `
-        <div style="margin-top:16px">
-          <strong style="display:block;margin-bottom:8px;color:var(--fiorella-navy);font-size:.87rem">${dateKeyLabel(date, true)}</strong>
-          <div class="admin-slot-grid">
-            ${TIMES.map(time => {
-              const status = slotStatus(date, time);
-              const disabled = status === "reserved";
-              const title = status === "blocked" ? "Clique para desbloquear" : status === "free" ? "Clique para bloquear" : "Horário reservado";
-              return `<button type="button" class="admin-slot ${status}" data-date="${date}" data-time="${time}" ${disabled ? "disabled" : ""} title="${title}">${time}</button>`;
-            }).join("")}
-          </div>
-        </div>`).join("");
-
-      container.querySelectorAll(".admin-slot:not(:disabled)").forEach(btn => {
-        btn.addEventListener("click", async () => {
-          const status = slotStatus(btn.dataset.date, btn.dataset.time);
-          const action = status === "blocked" ? "desbloquear" : "bloquear";
-          btn.disabled = true;
-          const { error } = await db.rpc("admin_alterar_horario_visita", {
-            p_senha: CONFIG.adminPassword,
-            p_data_visita: btn.dataset.date,
-            p_horario: btn.dataset.time,
-            p_acao: action
-          });
-          if (error) {
-            console.error(error);
-            showMessage(document.getElementById("adminPanelMessage"), error.message || "Não foi possível alterar o horário.", "error");
-          } else {
-            await loadSlots(false);
-            renderAdmin();
-            showMessage(document.getElementById("adminPanelMessage"), action === "bloquear" ? "Horário bloqueado." : "Horário desbloqueado.", "success");
-          }
-        });
-      });
-
-      const activeBookings = (state.bookings || []).filter(item => item.status !== "cancelado");
-      document.getElementById("bookingsList").innerHTML = activeBookings.length
-        ? activeBookings.map(item => `
-          <div class="booking-card">
-            <strong>${escapeHtml(item.nome)}</strong> — ${escapeHtml(item.empresa)}<br>
-            ${dateKeyLabel(item.data_visita, true)}, às <strong>${normalizeTime(item.horario)}</strong><br>
-            Participantes: <strong>${item.numero_participantes}</strong><br>
-            Telefone: ${escapeHtml(item.telefone)}<br>
-            E-mail: ${escapeHtml(item.email)}<br>
-            Código: ${escapeHtml(item.codigo_confirmacao || "—")}
-            <div class="booking-actions">
-              <button type="button" class="small-btn danger cancel-booking" data-id="${item.id}">Cancelar e liberar horário</button>
-            </div>
-          </div>`).join("")
-        : '<div class="empty-state">Nenhuma reserva confirmada.</div>';
-
-      document.querySelectorAll(".cancel-booking").forEach(btn => {
-        btn.addEventListener("click", async () => {
-          if (!confirm("Cancelar esta reserva e liberar o horário?")) return;
-          btn.disabled = true;
-          const { error } = await db.rpc("admin_cancelar_agendamento_visita", {
-            p_senha: CONFIG.adminPassword,
-            p_agendamento_id: btn.dataset.id
-          });
-          if (error) {
-            console.error(error);
-            showMessage(document.getElementById("adminPanelMessage"), error.message || "Não foi possível cancelar.", "error");
-            btn.disabled = false;
-            return;
-          }
-          await loadAdminData();
-          renderAdmin();
-          showMessage(document.getElementById("adminPanelMessage"), "Reserva cancelada e horário liberado.", "success");
-        });
-      });
-    }
-
-    document.getElementById("exportCsv").addEventListener("click", () => {
-      const rows = (state.bookings || []).filter(item => item.status !== "cancelado");
-      if (!rows.length) return showMessage(document.getElementById("adminPanelMessage"), "Não há reservas para exportar.", "error");
-      const headers = ["Data", "Horário", "Nome", "Empresa", "Participantes", "Telefone", "E-mail", "Código", "Status", "Criado em"];
-      const values = rows.map(item => [
-        item.data_visita,
-        normalizeTime(item.horario),
-        item.nome,
-        item.empresa,
-        item.numero_participantes,
-        item.telefone,
-        item.email,
-        item.codigo_confirmacao || "",
-        item.status,
-        item.created_at || ""
-      ]);
-      const csvEscape = value => `"${String(value ?? "").replace(/"/g, '""')}"`;
-      const csv = "\uFEFF" + [headers, ...values].map(row => row.map(csvEscape).join(";")).join("\r\n");
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = "agendamentos-fiorella-febratex.csv";
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
-    });
-
-    document.getElementById("clearAll").addEventListener("click", async () => {
-      const first = confirm("Esta ação cancelará todas as reservas e liberará todos os horários. Deseja continuar?");
-      if (!first) return;
-      const confirmation = prompt('Digite LIMPAR para confirmar:');
-      if (confirmation !== "LIMPAR") return;
-      const button = document.getElementById("clearAll");
-      button.disabled = true;
-      const { error } = await db.rpc("admin_limpar_agenda_visita", {
-        p_senha: CONFIG.adminPassword
-      });
-      button.disabled = false;
-      if (error) {
-        console.error(error);
-        return showMessage(document.getElementById("adminPanelMessage"), error.message || "Não foi possível limpar a agenda.", "error");
-      }
-      await loadAdminData();
-      renderAdmin();
-      showMessage(document.getElementById("adminPanelMessage"), "Agenda limpa e todos os horários liberados.", "success");
-    });
-
-    async function initialize() {
-      renderDates();
-      updateParticipantCounter();
-      updateProgressiveSections();
-      updateSummary();
-      await loadSlots();
-    }
-
-    initialize();
-  </script>
-</body>
-</html>
+function buildDo
